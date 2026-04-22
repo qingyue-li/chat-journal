@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from datetime import datetime
 import textwrap
 import io
@@ -36,8 +36,10 @@ except KeyError:
 # --- Location Settings ---
 st.sidebar.markdown("### Location Context")
 
-# The text input now reads from and writes to the session state
-user_location = st.sidebar.text_input("Your City", value=st.session_state.user_city)
+# By assigning the text box directly back to the session state, 
+# your manual typing will now successfully override the auto-detect
+new_city = st.sidebar.text_input("Your City", value=st.session_state.user_city)
+st.session_state.user_city = new_city
 
 # The auto-detect button
 if st.sidebar.button("📍 Auto-Detect My City"):
@@ -128,13 +130,47 @@ Guidelines:
 
     st.divider()
 
-    # Display chat
-    for message in st.session_state.messages:
+    # Display chat with Edit and Delete options
+    for i, message in enumerate(st.session_state.messages):
         with st.chat_message("user"):
             if message["type"] == "text":
-                st.markdown(message["content"])
+                # Check if this specific message is in 'editing' mode
+                edit_key = f"edit_{i}"
+                if edit_key not in st.session_state:
+                    st.session_state[edit_key] = False
+                    
+                if st.session_state[edit_key]:
+                    # Show a text area to change the thought
+                    new_text = st.text_area("Edit your thought:", value=message["content"], key=f"text_{i}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Save", key=f"save_{i}"):
+                            st.session_state.messages[i]["content"] = new_text
+                            st.session_state[edit_key] = False
+                            st.rerun()
+                    with col2:
+                        if st.button("Cancel", key=f"cancel_{i}"):
+                            st.session_state[edit_key] = False
+                            st.rerun()
+                else:
+                    # Show the normal text and action buttons
+                    st.markdown(message["content"])
+                    col1, col2, _ = st.columns([1, 1, 4])
+                    with col1:
+                        if st.button("Edit", key=f"edit_btn_{i}"):
+                            st.session_state[edit_key] = True
+                            st.rerun()
+                    with col2:
+                        if st.button("Delete", key=f"del_txt_{i}"):
+                            st.session_state.messages.pop(i)
+                            st.rerun()
+
             elif message["type"] == "image":
                 st.image(message["content"], width=300)
+                # Images just need a delete button
+                if st.button("Delete Photo", key=f"del_img_{i}"):
+                    st.session_state.messages.pop(i)
+                    st.rerun()
 
     # The Attachment Menu 
     with st.popover("➕ Photo"):
@@ -143,8 +179,10 @@ Guidelines:
         if uploaded_file is not None:
             if st.button("Send Photo"):
                 img = Image.open(uploaded_file)
+                # This single line reads the phone sensor data and rotates the photo upright
+                img = ImageOps.exif_transpose(img)
                 st.session_state.messages.append({"role": "user", "type": "image", "content": img})
-                st.rerun() 
+                st.rerun()
 
     if prompt := st.chat_input("Type a thought, paste a music link, or log an event..."):
         st.session_state.messages.append({"role": "user", "type": "text", "content": prompt})
