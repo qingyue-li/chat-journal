@@ -24,7 +24,14 @@ if "weather_str" not in st.session_state:
     st.session_state.weather_str = None
 
 st.sidebar.title("App Settings")
-api_key = st.sidebar.text_input("Enter your Gemini API Key", type="password")
+
+# Try to load the API key from Streamlit's secure secrets vault
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except KeyError:
+    # Fallback just in case the secret hasn't been set up yet
+    api_key = ""
+    st.sidebar.error("API Key not found in Streamlit Secrets!")
 
 # --- Location Settings ---
 st.sidebar.markdown("### Location Context")
