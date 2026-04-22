@@ -82,12 +82,11 @@ if st.session_state.app_stage == "gathering":
                 safe_city = urllib.parse.quote(target_city)
                 
                 try:
-                    weather_resp = requests.get(f"https://wttr.in/{safe_city}?format=%C,+%t", timeout=5)
-                    weather_resp.raise_for_status() # Forces an error if the website is down
+                    # Added &m to force the metric system (Celsius)
+                    weather_resp = requests.get(f"https://wttr.in/{safe_city}?format=%C,+%t&m", timeout=5)
+                    weather_resp.raise_for_status() 
                     
-                    # Explicitly tell Python to read the text as UTF-8 to fix the degree symbol
                     weather_resp.encoding = 'utf-8'
-                    
                     st.session_state.weather_str = weather_resp.text.strip()
                 except Exception as e:
                     # If it fails, show an error and immediately halt the app
